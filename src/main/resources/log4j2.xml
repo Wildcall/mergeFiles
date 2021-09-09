@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration>
+    <Properties>
+        <Property name="exceptions">logs/errors.log</Property>
+        <Property name="data-error">logs/data-error.log</Property>
+    </Properties>
+
+    <Appenders>
+        <File name="exceptions" fileName="${exceptions}">
+            <PatternLayout>
+                <Pattern>%d %p %c{1.} %m %ex%n</Pattern>
+            </PatternLayout>
+        </File>
+        <File name="data-error" fileName="${data-error}">
+            <MarkerFilter marker="data-error" onMatch="ACCEPT" onMismatch="DENY"/>
+            <PatternLayout>
+                <Pattern>%d %p %c{1.} [%t] %m %ex%n</Pattern>
+            </PatternLayout>
+        </File>
+    </Appenders>
+    <Loggers>
+        <Root level="trace">
+            <AppenderRef ref="data-error" level="info"/>
+            <AppenderRef ref="exceptions" level="error"/>
+        </Root>
+    </Loggers>
+</Configuration>
