@@ -3,6 +3,9 @@ package ru.malygin.sort;
 import java.io.BufferedReader;
 import java.io.IOException;
 
+/**
+*   A wrapper over a BufferedReader, keeps the last element of the file in memory.
+*/
 public class InputStack {
 
     private final BufferedReader bufferedReader;
