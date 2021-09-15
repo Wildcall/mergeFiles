@@ -5,7 +5,6 @@ import lombok.Setter;
 import org.apache.logging.log4j.*;
 
 import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
@@ -38,7 +37,7 @@ public class MergeFile {
         try {
             Files.createDirectories(Path.of(tmpDirectory));
         } catch (IOException e) {
-            e.printStackTrace();
+            System.err.println(e.getMessage());
             logger.log(Level.ERROR, e.getMessage());
         }
     }
@@ -61,8 +60,8 @@ public class MergeFile {
                 MergeFile.outputFile = outputFile;
             } else {
             System.err.println(
-                    outputFile + " (files not found, using default output file " + MergeFile.getOutputFile() + ")");}
-
+                    outputFile + " (files not found, using default output file " + MergeFile.getOutputFile() + ")");
+            }
         }
     }
 
@@ -78,17 +77,17 @@ public class MergeFile {
             return mergeFiles(filePaths, outputFile);
         }
 
-        List<String> blockOfFile = new ArrayList<>();
+        List<String> blockOfFiles = new LinkedList<>();
         int blocksCount = filesCount / filesCountThreshold
                 + (filesCount % filesCountThreshold == 0 ? 0 : 1);
         for (int i = 0; i < blocksCount; i++)
         {
-            blockOfFile.add(
+            blockOfFiles.add(
                     mergeBlockOfFile(
                             filePaths.subList((i * filesCountThreshold),
                                     Math.min(((i + 1) * filesCountThreshold), filesCount))));
         }
-        return  merge(blockOfFile);
+        return  merge(blockOfFiles);
     }
 
     /**
@@ -98,19 +97,19 @@ public class MergeFile {
      * @throws IOException generic IO exception
      */
     public static String presortAndMerge(List<String> filePaths) throws IOException {
-        List<String> resultList = new ArrayList<>();
+        List<String> resultList = new LinkedList<>();
 
         int threadsCount = Runtime.getRuntime().availableProcessors() - 1;
         ExecutorService service = Executors.newFixedThreadPool(threadsCount);
 
-        List<Future<String>> futures = new ArrayList<>();
+        List<Future<String>> futures = new LinkedList<>();
         for (String filePath : filePaths) {
             futures.add(CompletableFuture.supplyAsync(
                     () -> {
                         try {
                             return checkSort(filePath);
                         } catch (IOException e) {
-                            e.printStackTrace();
+                            System.err.println(e.getMessage());
                             logger.log(Level.ERROR, e.getMessage());
                             return filePath;
                         }
@@ -122,7 +121,7 @@ public class MergeFile {
             try {
                 resultList.add(future.get());
             } catch (InterruptedException | ExecutionException e) {
-                e.printStackTrace();
+                System.err.println(e.getMessage());
                 logger.log(Level.ERROR, e.getMessage());
             }
         }
@@ -149,11 +148,11 @@ public class MergeFile {
      * @return String path of output file
      */
     private static String mergeFiles(List<String> filePaths, String outputFile) {
-        List<InputStack> isl = new ArrayList<>();
+        List<InputStack> isl = new LinkedList<>();
 
         for (String file : filePaths) {
             try{
-                isl.add(new InputStack(getBufferedReader(file)));
+                isl.add(new InputStack(Files.newBufferedReader(Path.of(file))));
             } catch (IOException e) {
                 System.err.println(e.getMessage());
                 logger.log(Level.ERROR, e.getMessage());
@@ -161,7 +160,7 @@ public class MergeFile {
         }
 
         try {
-            mergeSort(getBufferedWriter(outputFile), isl);
+            mergeSort(Files.newBufferedWriter(Path.of(outputFile)), isl);
         } catch (IOException e) {
             System.err.println(e.getMessage());
             logger.log(Level.ERROR, e.getMessage());
@@ -226,7 +225,7 @@ public class MergeFile {
      */
     private static String checkSort(String filePath) throws IOException {
         try{
-            BufferedReader br = getBufferedReader(filePath);
+            BufferedReader br = Files.newBufferedReader(Path.of(filePath));
             String current = br.readLine();
             String previous = current;
             while (current != null) {
@@ -275,14 +274,14 @@ public class MergeFile {
      * @throws IOException generic IO exception
      */
     private static String externalSort(String filePath) throws IOException {
-        List<String> filePaths = new ArrayList<>();
+        List<String> filePaths = new LinkedList<>();
 
         long blockSize = estimateBestSizeOfBlocks(new File(filePath).length());
 
-        List<String> tmpList = new ArrayList<>();
+        List<String> tmpList = new LinkedList<>();
         String line = "";
         try {
-            BufferedReader br = getBufferedReader(filePath);
+            BufferedReader br = Files.newBufferedReader(Path.of(filePath));
             while (line != null) {
                 long currentBlockSize = 0;
                 while ((currentBlockSize < blockSize) && ((line = br.readLine()) != null)) {
@@ -331,7 +330,7 @@ public class MergeFile {
         File newTmpFile = File.createTempFile("sorted-", "-file", tmpDir);
         newTmpFile.deleteOnExit();
         try {
-            BufferedWriter fbw = getBufferedWriter(newTmpFile.toString());
+            BufferedWriter fbw = Files.newBufferedWriter(Path.of(newTmpFile.toString()));
             for (String r : linesList) {
                 fbw.write(r);
                 fbw.newLine();
@@ -342,31 +341,6 @@ public class MergeFile {
             logger.log(Level.ERROR, e.getMessage());
         }
         return newTmpFile.toString();
-    }
-
-    /**
-     * The method returns a BufferedReader for a file named filePath.
-     * @param filePath String path of file
-     * @return BufferedReader
-     * @throws IOException generic IO exception
-     */
-    private static BufferedReader getBufferedReader(String filePath) throws IOException {
-        return new BufferedReader(
-                new InputStreamReader(
-                        new FileInputStream(filePath), StandardCharsets.UTF_8));
-
-    }
-
-    /**
-     * The method returns a BufferedWriter for a file named filePath.
-     * @param filePath String path of file
-     * @return BufferedWriter
-     * @throws IOException generic IO exception
-     */
-    private static BufferedWriter getBufferedWriter(String filePath) throws IOException {
-        return new BufferedWriter(
-                new OutputStreamWriter(
-                        new FileOutputStream(filePath),StandardCharsets.UTF_8));
     }
 
     /**
